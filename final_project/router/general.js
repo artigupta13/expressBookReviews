@@ -1,5 +1,6 @@
 const express = require("express");
-let books = require("./booksdb.js");
+let { books } = require("./booksdb.js");
+const { sliceDictionary } = require("./booksdb.js");
 let doesExist = require("./auth_users.js").doesExist;
 let users = require("./auth_users.js").users;
 const public_users = express.Router();
@@ -35,17 +36,42 @@ public_users.post("/register", (req, res) => {
   return res.status(404).json({ message: "Unable to register user." });
 });
 
-function fetchBooks() {
+function fetchBooks(page, perPage) {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
-      resolve(books);
+      // Calculate start and end indices based on pagination parameters
+      const startIndex = (page - 1) * perPage;
+      const endIndex = page * perPage;
+
+      // Slice the data to get the subset for the current page
+      const data = sliceDictionary(books, startIndex, endIndex);
+
+      // Calculate pagination metadata
+      const totalBooks = Object.keys(books).length;
+
+      const totalPages = Math.ceil(totalBooks / perPage);
+      // Construct the response object
+      const response = {
+        books: data,
+        pagination: {
+          page,
+          perPage,
+          totalBooks,
+          totalPages,
+        },
+      };
+      resolve(response);
     }, 100);
   });
 }
 
 // Get the book list available in the shop
 public_users.get("/", function (req, res) {
-  fetchBooks().then((data) => res.send(JSON.stringify({ data }, null, 4)));
+  const page = parseInt(req.query.page) || 1;
+  const perPage = parseInt(req.query.perPage) || 3;
+  fetchBooks(page, perPage).then((data) =>
+    res.send(JSON.stringify({ data }, null, 4))
+  );
 });
 
 // Get book details based on ISBN
